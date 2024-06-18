@@ -55,7 +55,10 @@ Visual Studio:         2022
 1. A new multiaptch geometry will be added to the overlay using a mesh symbol.  
 ![UI](Screenshots/MultipatchOverlay.png)  
   
-
+## Sample Extension
+Two new buttons have been added extending the functionality of this sample 
+1. CreateMultiPoint creates a set of points increasing with elevation then calculates a centroid point
+2. CreateTriangleMultipatch utilizes geometry engines triangle fan multipatch tool to create a pyramid  multipatch. 
 
 <!-- End -->
 
