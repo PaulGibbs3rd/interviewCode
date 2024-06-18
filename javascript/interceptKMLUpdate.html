@@ -1,0 +1,104 @@
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+    <title>KMLLayer | Sample | ArcGIS Maps SDK for JavaScript 4.26</title>
+
+    <style>
+      html,
+      body,
+      #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+      }
+    </style>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/4.26/esri/themes/light/main.css" />
+    <script src="https://js.arcgis.com/4.26/"></script>
+
+    <script>
+      require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/KMLLayer",
+        "esri/widgets/ScaleBar",
+        "esri/config"
+      ], (Map, MapView, KMLLayer, ScaleBar,esriConfig) => {
+
+        var storms = {
+          'AL072022': { 'name': 'Fiona', 'type': 'H', 'lat': 24.2, 'lon': -71.7, 'advnum': '028A' }
+,
+          'AL082022': { 'name': 'Gaston', 'type': 'TS', 'lat': 37.5, 'lon': -42.6, 'advnum': '004' }
+        };
+
+        const map = new Map({
+          basemap: "topo"
+        });
+
+        const view = new MapView({
+          container: "viewDiv",
+          map: map
+        });
+
+        const scalebar = new ScaleBar({
+          view: view
+        });
+        view.ui.add(scalebar, "bottom-left");
+
+        for (let s in storms) {
+          let storm = storms[s];
+          storm.track = new KMLLayer({
+            url: "https://www.nhc.noaa.gov/storm_graphics/api/" + s + "_" + storm['advnum'] + "adv_TRACK.kmz",
+            id: "KML_" + s + "_track"
+          });
+          
+          const kmlServiceUrl = "https://utility.arcgis.com/sharing/kml";
+
+          esriConfig.request.interceptors.push({
+            urls: kmlServiceUrl,
+            /*before: function(params) {
+              if (params) {
+                console.log(params);
+              }
+            },*/
+            after: function(response) {
+              //if response contains a feature collection 
+              if(response.data.featureCollection){
+
+                let[geometryLayer, polylineLayer, pointLayer] = response.data.featureCollection.layers;
+                for(let aSymbol of pointLayer.featureSet.features){
+                  //this is where we can apply X and Y offsets
+                  
+                  aSymbol.geometry.x -= .60;
+                  aSymbol.geometry.y -= .60;
+                  
+                }
+                
+                for(let aLine in polylineLayer.featureSet.features){
+                  if(polylineLayer.featureSet.features[aLine].attributes.styleUrl == "120_line" || "72_line"){
+   polylineLayer.featureSet.features[aLine].geometry = false;
+
+                   } 
+                }
+
+              }
+            }
+          });
+          
+          //--------------------------------------------------
+          storm.track.load().then(() => {
+            map.add(storm.track);
+          }).catch((error) => {
+            console.error("Error loading KMLLayer:", error);
+          });
+        }
+      });
+    </script>
+  </head>
+
+  <body>
+    <div id="viewDiv"></div>
+  </body>
+</html>
