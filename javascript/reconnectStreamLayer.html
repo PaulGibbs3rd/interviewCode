@@ -1,0 +1,380 @@
+
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1,user-scalable=no">
+    <title>Custom Websocket</title>
+    <style>
+        html,
+        body, #viewDiv {
+            height: 100%;
+            width: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        .divsStyle {
+            width: 300px;
+            padding: 8px;
+        }
+    </style>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/next/esri/themes/light/main.css" />
+    <script src="https://js.arcgis.com/4.26/"></script>
+
+    <script>
+      require([
+        "esri/Map",
+        "esri/views/MapView",
+        "esri/layers/StreamLayer",
+        "esri/widgets/Slider"
+      ], (Map, MapView, StreamLayer, Slider) =>
+              (async () => {
+
+        // Purge Option: purge based on minutes since feature update received
+        let ageReceived = parseFloat(getParameterByName("received")) || null;
+
+        // Purge Option: purge based on age of feature, as
+        // determined by timeInfo.startField
+        let age = parseFloat(getParameterByName("age")) || null;
+
+        // Param passed to StreamLayers constructor  (how often to poll WebSocket)
+        let updateInterval = getParameterByName("interval") || 1000;
+        let maxObservations = getParameterByName("max") || 1;
+        let displayCount = getParameterByName("count") || null;
+
+        // Param to js "setInterval()", controlling ms between function calls
+        let setIntervalAge = getParameterByName("set") || 1000;
+
+        let streamFreshSeconds = +getParameterByName("freshsec") || 10;
+        let streamStaleMaxMinutes = +(getParameterByName("stalemin") || 5) + (streamFreshSeconds / 60);
+
+        function getParameterByName(variable) {
+          var query = window.location.search.substring(1);
+          var vars = query.split('&');
+          for (var i = 0; i < vars.length; i++) {
+            var pair = vars[i].split('=');
+            if (decodeURIComponent(pair[0]) == variable) {
+              return decodeURIComponent(pair[1]);
+            }
+          }
+        }
+
+        function makeCircleSymbol(color) {
+          return {
+            type: "simple-marker",
+            size: "10px",
+            color: color
+          };
+        }
+
+        function createValueExpressionRenderer() {
+          const blacksymbol = makeCircleSymbol([0, 0, 0, 255]);
+          const redsymbol = makeCircleSymbol([255, 0, 0, 255]);
+          const greensymbol = makeCircleSymbol([0, 255, 0, 255]);
+          const bluesymbol = makeCircleSymbol([0, 0, 255, 255]);
+          const expiredSymbol = makeCircleSymbol([128, 128, 128, 255]);
+
+          return {
+            type: 'unique-value',
+            valueExpression: `
+               var timeSinceStart = DateDiff(Now(), Date($feature.START));
+               var veResult = IIf(timeSinceStart > ${streamFreshSeconds * 1000}, 'expired', $feature.GROUP_NAME);
+               return veResult;
+            `,
+            defaultSymbol: blacksymbol,
+
+            uniqueValueInfos: [
+              { value: 'expired', symbol: expiredSymbol },
+              { value: 'black', symbol: blacksymbol },
+              { value: 'red', symbol: redsymbol },
+              { value: 'green', symbol: greensymbol },
+              { value: 'blue', symbol: bluesymbol }
+            ]
+          };
+
+        }
+
+        const layer = new StreamLayer({
+          fields: [
+            {
+              name: "OBJECTID",
+              alias: "ObjectId",
+              type: "oid",
+            },
+            {
+              name: "TRACKID",
+              alias: "TrackId",
+              type: "oid",
+            },
+            {
+              name: "GROUP_NAME",
+              alias: "GROUP_NAME",
+              type: "string",
+            },
+            {
+              name: "START",
+              alias: "START",
+              type: "date",
+            }
+          ],
+          timeInfo: {
+            trackIdField: "TRACKID",
+            startField: "START"
+          },
+          outFields: ["*"],
+          purgeOptions: { age: streamStaleMaxMinutes },
+
+          // updates features on the map every 300 milliseconds by default or at specified interval
+          // all updated features between the updateInterval will not be polled to the client.
+          // clears the previous features and create  new ones with all the changes
+          updateInterval,
+          geometryType: "point",
+          popupTemplate: {
+            title: "{GROUP_NAME}",
+            content: "{TRACKID}"
+          },
+          labelingInfo:[{
+            symbol: {
+              type: "text",
+              color: "blue",
+              haloColor: "blue",
+              haloSize: 1,
+              font: {
+                family: "Ubuntu Mono",
+                size: 14,
+                weight: "bold"
+              }
+            },
+            labelPlacement: "above-right",
+            labelExpressionInfo: {
+              expression: `var minZ = Minute(Date($feature.START))
+              var secondZ = Second(Date($feature.START))
+              return Concatenate([minZ, secondZ], ':')`
+            }
+          }],
+          renderer: createValueExpressionRenderer()
+        });
+
+        const map = new Map({
+          basemap: "gray-vector",
+          layers: [ layer ]
+        });
+
+        const view = new MapView({
+          container: "viewDiv",
+          map,
+          center: [-74.170, 40.614],
+          zoom: 11
+        });
+
+        let layerView = await view.whenLayerView(layer);
+        layerView.on("data-received", (event)=> {
+          let time = new Date(event.attributes.START);
+          document.getElementById("timeReceived").innerHTML = time;
+        });
+
+         layerView.on("update-rate", (event)=> {
+          console.log("update-rate", event)
+        });
+
+        const ageSec = age * 60;
+        const receivedSec = streamStaleMaxMinutes * 60;
+        document.getElementById("purgeOptionsDiv").innerHTML = `updateInterval: ${updateInterval} <br>
+         setInterval: ${setIntervalAge} <br>
+         streamFreshSeconds: ${streamFreshSeconds} <br>
+         streamStaleMaxMinutes: ${receivedSec} seconds <br>`;
+
+                    // Definition
+        function setIntervalLimited(callback, interval, x) {
+
+            for (var i = 0; i < x; i++) {
+                setTimeout(callback, i * interval);
+            }
+
+        }
+
+        view.when().then(() => {
+          // Connect up add/remove buttons
+          const addButton = document.getElementById("addButton");
+          const removeButton = document.getElementById("removeButton");
+
+          let objectIdCounter = 1;
+          let trackIdCounter = 2;
+
+          // Create a feature at map center that travels up the map
+          let lastX = view.center.x;
+          let lastY = view.center.y;
+          let i = 0;
+
+          const initGreenStart = Date.now();
+          var blueLastEmit,blueLastX,bkueLastY;              // Definition
+          function setIntervalLimited(callback, interval, x) {
+
+              for (var i = 0; i < x; i++) {
+                  setTimeout(callback, i * interval);
+              }
+
+          }
+          // Send initial message with all features (red, green, and blue)
+          layer.sendMessageToClient({
+              type: "features",
+              features: [
+                {
+                  attributes: {
+                    TRACKID: 1,
+                    OBJECTID: objectIdCounter++,
+                    GROUP_NAME: 'red',
+                    START: Date.now()
+                  },
+                  geometry: {
+                    x: lastX,
+                    y: lastY,
+                  }
+                },
+                {
+                  attributes: {
+                    TRACKID: 2,
+                    OBJECTID: objectIdCounter++,
+                    GROUP_NAME: 'green',
+                    START: initGreenStart
+                  },
+                  geometry: {
+                    x: lastX + 1000,
+                    y: lastY + 1000,
+                  }
+                },
+                {
+                  attributes: {
+                    TRACKID: 3,
+                    OBJECTID: objectIdCounter++,
+                    GROUP_NAME: 'blue',
+                    START: Date.now()
+                  },
+                  geometry: {
+                    x: 100 + lastX,
+                    y: lastY + 100,
+                  }
+                }
+              ]
+            });
+
+
+          // Update blue for fresh sec times
+          setIntervalLimited(function() {
+            blueLastEmit = Date.now();
+            blueLastX =lastX + 10000;
+            bkueLastY= lastY + 1000;
+              layer.sendMessageToClient({
+                        type: "features",
+                        features: [
+                           {
+                            attributes: {
+                              TRACKID: 3,
+                              OBJECTID: objectIdCounter++,
+                              GROUP_NAME: 'blue',
+                              START: blueLastEmit
+                            },
+                            geometry: {
+                              x: blueLastX,
+                              y: bkueLastY,
+                            }
+                          }
+                          ]
+                })
+
+          }, 1000, streamFreshSeconds)
+
+
+
+          // Send updates with red & green only (re-pushing green with init START).
+          setInterval(() => {
+            lastY += 500;
+            i++;
+
+            layer.sendMessageToClient({
+              type: "features",
+              features: [
+                {
+                  attributes: {
+                    TRACKID: 1,
+                    OBJECTID: objectIdCounter++,
+                    GROUP_NAME: 'red',
+                    START: Date.now()
+                  },
+                  geometry: {
+                    x: lastX,
+                    y: lastY,
+                  }
+                },
+                {
+                  attributes: {
+                    TRACKID: 2,
+                    OBJECTID: objectIdCounter++,
+                    GROUP_NAME: 'green',
+                    START: initGreenStart
+                  },
+                  geometry: {
+                    x: lastX + 1000,
+                    y: lastY + 1000,
+                  }
+                }
+              ]
+            })
+            var timeDiffBlue = Date.now() - blueLastEmit;
+            //console.log(timeDiffBlue + " VS " + streamFreshSeconds*1000 + "\nOID COUNTER: " + objectIdCounter);
+            //console.log(streamFreshSeconds*950 +"<" +timeDiffBlue+ "<"+ streamFreshSeconds*1050);
+            if(streamFreshSeconds*997 <= timeDiffBlue && timeDiffBlue <= streamFreshSeconds*1002){
+                  layer.sendMessageToClient({
+                        type: "features",
+                        features: [
+                           {
+                            attributes: {
+                              TRACKID: 3,
+                              OBJECTID: objectIdCounter++,
+                              GROUP_NAME: 'blue',
+                              START: blueLastEmit
+                            },
+                            geometry: {
+                              x: blueLastX,
+                              y: bkueLastY,
+                            }
+                          }
+                          ]
+                });
+            }
+          }, setIntervalAge);
+
+        });
+
+        view.ui.add("pauseBtn", "top-left");
+        let isPaused = false;
+        const pauseBtn = document.getElementById("pauseBtn");
+        pauseBtn.addEventListener("click", ()=>{
+          if (isPaused) {
+            layerView.resume();
+            pauseBtn.innerHTML = "Pause";
+          } else {
+            layerView.pause();
+            pauseBtn.innerHTML = "Resume";
+          }
+
+          isPaused = !isPaused;
+        });
+
+        view.ui.add("infoDiv", "top-right");
+
+
+      })());
+    </script>
+</head>
+<body>
+    <div id="viewDiv"></div>
+    <div id="infoDiv" class="esri-widget divsStyle">
+        <div id="timeReceived" class="esri-widget"></div><br>
+        <div id="purgeOptionsDiv" class="esri-widget"></div>
+    </div>
+
+    <div id="pauseBtn" class="esri-button">Pause</div>
+</body>
+</html>
