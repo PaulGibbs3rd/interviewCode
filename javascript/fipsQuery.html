@@ -1,0 +1,163 @@
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Query and Union FIPS Codes with Timing and Layer Control</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.29/esri/themes/light/main.css">
+    <style>
+        html, body, #viewDiv {
+            padding: 0;
+            margin: 0;
+            height: 100%;
+            width: 100%;
+        }
+        .input-area {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 10px;
+            z-index: 10;
+        }
+    </style>
+    <script src="https://js.arcgis.com/4.29/"></script>
+</head>
+<body>
+    <div class="input-area">
+        <label for="fipsInput">Enter FIPS Codes (comma-separated or single-quoted):</label><br>
+        <textarea id="fipsInput" rows="3" style="width: 300px;"></textarea><br>
+        <button onclick="performQuery()">Query and Union</button>
+        <button onclick="toggleSelectionMode()">Toggle Selection Mode</button>
+        <p id="queryTime"></p>
+        <p id="unionTime"></p>
+    </div>
+    <div id="viewDiv"></div>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/FeatureLayer",
+            "esri/geometry/geometryEngine",
+            "esri/Graphic",
+            "esri/layers/GraphicsLayer",
+            "esri/widgets/LayerList",
+            "esri/views/layers/FeatureLayerView"
+        ], function(Map, MapView, FeatureLayer, geometryEngine, Graphic, GraphicsLayer, LayerList, FeatureLayerView) {
+            const map = new Map({
+                basemap: "streets-vector"
+            });
+
+            const view = new MapView({
+                container: "viewDiv",
+                map: map,
+                center: [-95.7129, 37.0902],
+                zoom: 4
+            });
+
+            const featureLayer = new FeatureLayer({
+                url: "https://services.arcgis.com/P3ePLMYs2RVChkJx/arcgis/rest/services/USA_Census_Tracts/FeatureServer/0",
+                outFields: ["*"],
+                title: "Census Tracts"
+            });
+
+            map.add(featureLayer);
+
+            const graphicsLayer = new GraphicsLayer({
+                title: "Union Layer"
+            });
+            map.add(graphicsLayer);
+
+            const layerList = new LayerList({
+                view: view
+            });
+            view.ui.add(layerList, "top-right");
+
+            let selectionMode = false;
+            let selectedFIPS = [];
+
+            view.on("click", function(event) {
+                if (!selectionMode) return;
+
+                view.hitTest(event).then(function(response) {
+                    const results = response.results.filter(result => result.graphic.layer === featureLayer);
+                    if (results.length) {
+                        const feature = results[0].graphic;
+                        const fips = feature.attributes.FIPS;
+                        if (!selectedFIPS.includes(fips)) {
+                            selectedFIPS.push(fips);
+                            const selectedGraphic = new Graphic({
+                                geometry: feature.geometry,
+                                symbol: {
+                                    type: "simple-fill",
+                                    color: [0, 0, 255, 0.4],
+                                    outline: { color: [255, 255, 255], width: 1 }
+                                }
+                            });
+                            graphicsLayer.add(selectedGraphic);
+                        }
+                    }
+                });
+            });
+
+            window.toggleSelectionMode = function() {
+                selectionMode = !selectionMode;
+                alert(selectionMode ? "Selection mode enabled. Click on tracts to select them." : "Selection mode disabled.");
+            };
+
+            window.performQuery = function() {
+                var fipsCodes = document.getElementById("fipsInput").value;
+                var fipsArray = fipsCodes.replace(/'/g, '').split(',').map(f => f.trim()).filter(f => f !== '');
+                fipsArray = fipsArray.concat(selectedFIPS);
+                if (fipsArray.length === 0) {
+                    alert("Please enter valid FIPS codes or select tracts.");
+                    return;
+                }
+
+                var whereClause = "FIPS IN ('" + fipsArray.join("','") + "')";
+                var queryStartTime = performance.now();
+
+                featureLayer.definitionExpression = whereClause;
+
+                featureLayer.queryFeatures({
+                    where: whereClause,
+                    returnGeometry: true,
+                    outFields: ["*"]
+                }).then(function(results) {
+                    var queryEndTime = performance.now();
+                    document.getElementById("queryTime").innerText = "Query time: " + (queryEndTime - queryStartTime).toFixed(2) + " ms";
+
+                    if (results.features.length > 0) {
+                        var unionStartTime = performance.now();
+                        var geometries = results.features.map(function(feature) {
+                            return feature.geometry;
+                        });
+                        var unionedGeometry = geometryEngine.union(geometries);
+                        var unionEndTime = performance.now();
+                        document.getElementById("unionTime").innerText = "Union calculation time: " + (unionEndTime - unionStartTime).toFixed(2) + " ms";
+
+                        var unionedGraphic = new Graphic({
+                            geometry: unionedGeometry,
+                            symbol: {
+                                type: "simple-fill",
+                                color: [227, 139, 79, 0.4],
+                                outline: { color: [255, 255, 255], width: 1 }
+                            }
+                        });
+                        graphicsLayer.removeAll();
+                        graphicsLayer.add(unionedGraphic);
+                        view.goTo(unionedGraphic.geometry.extent);
+                    } else {
+                        document.getElementById("unionTime").innerText = "No features found or union failed.";
+                    }
+                }).catch(function(error) {
+                    console.error("Error in querying features: ", error);
+                    document.getElementById("queryTime").innerText = "Error in processing query: " + error.message;
+                });
+            };
+        });
+      /*Fips to test with: 
+       '13013180103','13013180104','13013180105','13013180106','13013180107','13013180108','13013180203'
+      */
+    </script>
+</body>
+</html>
