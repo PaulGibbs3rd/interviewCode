@@ -1,0 +1,68 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>MultipatchBuilderEx</name>
+    </assembly>
+    <members>
+        <member name="T:MultipatchBuilderEx.AddMultipatchToOverlay">
+            <summary>
+            Add a multipatch geometry to the overlay.
+            </summary>
+        </member>
+        <member name="T:MultipatchBuilderEx.ApplyMaterials">
+            <summary>
+            Applies materials to the newly created multipatch feature
+            </summary>
+        </member>
+        <member name="T:MultipatchBuilderEx.ApplyTextures">
+            <summary>
+            Applies textures to the newly created multipatch feature
+            </summary>
+        </member>
+        <member name="T:MultipatchBuilderEx.CreateTriangleMultipatch">
+            <summary>
+            Creates a new triangle multipatch and stores it in a feature class. The multipatch has no materials and no textures. 
+            </summary>
+        </member>
+        <member name="T:MultipatchBuilderEx.Module1">
+            <summary>
+            This sample demonstrates how to construct multipatch geometries using the MultipatchBuilderEx class found in the ArcGIS.Core.Geometry namespace. 
+            The MultipatchBuilderEx class also allows you to modify properties of a multipatch including the materials and textures.
+            This add-in contains a number of buttons which create and modify multipatch features. 
+            </summary>
+            <remarks>
+            1. Download the Community Sample data (see under the 'Resources' section for downloading sample data)
+            1. Make sure that the Sample data is unzipped in C:\Data
+            1. Before you run the sample verify that the project "C:\Data\MultipatchTest\MultipatchTest.aprx" is present since this is required to run the sample.
+            1. In Visual Studio click the Build menu. Then select Build Solution.
+            1. Click Start button to open ArcGIS Pro.
+            1. ArcGIS Pro will open.
+            1. Open the "C:\Data\MultipatchTest\MultipatchTest.aprx" project.
+            1. Click on the ADD-IN TAB.
+            1. Click on the *Create Triangle Multipatch* button. 
+            1. A new multiaptch feature will be created.
+            ![UI](Screenshots/Multipatch.png)
+            1. Click on the "Apply Materials" button.
+            1. The created multipatch feature will now have materials applied to it's faces. 
+            ![UI](Screenshots/MultipatchMaterial.png)
+            1. Click on the "Apply Textures" button.
+            1. The created multipatch feature will now have textures applied to it's faces. 
+            ![UI](Screenshots/MultipatchTexture.png)
+            1. Click on the "Add Multipatch to Overlay" button.
+            1. A new multiaptch geometry will be added to the overlay using a mesh symbol.
+            ![UI](Screenshots/MultipatchOverlay.png)
+            </remarks>
+        </member>
+        <member name="P:MultipatchBuilderEx.Module1.Current">
+            <summary>
+            Retrieve the singleton instance to this module here
+            </summary>
+        </member>
+        <member name="M:MultipatchBuilderEx.Module1.CanUnload">
+            <summary>
+            Called by Framework when ArcGIS Pro is closing
+            </summary>
+            <returns>False to prevent Pro from closing, otherwise True</returns>
+        </member>
+    </members>
+</doc>

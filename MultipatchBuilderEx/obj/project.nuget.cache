@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "qfcM2nHYAPg=",
+  "success": true,
+  "projectFilePath": "D:\\Users\\pau11750\\OneDrive - Esri\\Desktop\\Samples\\arcgis-pro-sdk-community-samples-master\\arcgis-pro-sdk-community-samples-master\\Geometry\\MultipatchBuilderEx\\MultipatchBuilderEx.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\pau11750\\.nuget\\packages\\microsoft.win32.systemevents\\6.0.0\\microsoft.win32.systemevents.6.0.0.nupkg.sha512",
+    "C:\\Users\\pau11750\\.nuget\\packages\\system.drawing.common\\6.0.0\\system.drawing.common.6.0.0.nupkg.sha512"
+  ],
+  "logs": []
+}
