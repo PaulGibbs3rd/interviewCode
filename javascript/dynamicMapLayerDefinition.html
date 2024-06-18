@@ -1,0 +1,126 @@
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <title>Display a dynamic map layer</title>
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <!-- Load Esri Leaflet from CDN -->
+    <script src="https://unpkg.com/esri-leaflet@3.0.10/dist/esri-leaflet.js"></script>
+    <!-- Load Esri Leaflet Vector from CDN -->
+    <script src="https://unpkg.com/esri-leaflet-vector@4.0.2/dist/esri-leaflet-vector.js" crossorigin=""></script>
+    <style>
+      html,
+      body,
+      #map {
+        padding: 0;
+        margin: 0; 
+        height: 100%;
+        width: 100%;
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 14px;
+        color: #323232;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+    <script>
+      let red = [255, 0, 0, 255]; //"#ff0000";
+      let amber = [255, 192, 0, 255]; //"#ffc000";
+      let green = [0, 176, 80, 255]; //"#00b050";
+      let blue = [8, 10, 135, 255]; //"#080a87";
+      let black = [0, 0, 0, 200]; //"#000000";
+
+      function getFillSymbol(color){
+          var fill = [...color];
+          fill[3] = 150;
+          return {
+              "type": "esriSFS",
+              "style": "esriSFSSolid",
+              "color": fill,
+              "outline": {
+                  "type": "esriSLS",
+                  "style": "esriSLSSolid",
+                  "color": black,
+                  "width": 1
+              }
+          }
+      }
+
+      function getDynamicLayers(field='POP2000', breaks=[100, 1000, 10000, 100000]){
+          return [
+              {  //disable time on existing map service layer and turn off labels
+                  "id": 3,
+                  "source": {
+                      "type": "mapLayer",
+                      "mapLayerId": 3
+                  },
+                "definitionExpression":"STATE_NAME = 'Colorado'",
+                  "drawingInfo": {
+                      "showLabels": true,
+                      "renderer": {
+                          "type": "classBreaks",
+                          "field": field,
+                          "defaultSymbol": getFillSymbol(blue),
+                          "classBreakInfos": [
+                              {
+                                  classMinValue: breaks[0],
+                                  classMaxValue: breaks[1],
+                                  symbol: getFillSymbol(black),
+                              },
+                              {
+                                  classMinValue: breaks[1] +.01,
+                                  classMaxValue: breaks[2],
+                                  symbol: getFillSymbol(red),
+                              },
+                              {
+                                  classMinValue: breaks[2] +.01,
+                                  classMaxValue: breaks[3],
+                                  symbol: getFillSymbol(amber),
+                              },
+                              {
+                                  classMinValue: breaks[3] +.01,
+                                  classMaxValue: 10000000,
+                                  symbol: getFillSymbol(green),
+                              },
+                          ],
+                      }
+                  }
+              },
+          ]
+      }
+
+      const apiKey = "YOUR_API_KEY";
+
+      const map = L.map("map").setView([37.71, -99.88], 4);
+      L.esri.basemapLayer('Gray').addTo(map);
+      // L.esri.Vector.vectorBasemapLayer("ArcGIS:Imagery:Standard", {
+      //   apikey: apiKey
+      // }).addTo(map);
+
+      var layer = L.esri
+        .dynamicMapLayer({
+          url: "https://sampleserver6.arcgisonline.com/arcgis/rest/services/USA/MapServer",
+          // layerDefs: {3: "POP2000 > 200000"},
+          // layerDefs: {3: "OBJECTID = 1230 or OBJECTID = 1070"},
+          layerDefs: {3: "STATE_NAME = 'Colorado'"},
+          dynamicLayers: getDynamicLayers(), 
+          opacity: 0.7,
+        });
+      layer.bindPopup(function(err, featureCollection, response){
+        var count = featureCollection.features.length;
+        if(count == 0){
+            console.log('no features');
+            return false;
+        }
+        let features = featureCollection.features;
+        features.forEach(feature => {
+            console.log(feature);
+        })
+        
+      });
+      layer.addTo(map);
+    </script>
+  </body>
+</html>
